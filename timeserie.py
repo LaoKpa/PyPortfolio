@@ -295,8 +295,6 @@ class TimeSerie(list):
 
 			b0 = (s_y * s_xx - s_x * s_xy)/(N * s_xx - s_x ** 2)
 			b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
-			#b0 = (s_y * (s_xx - (t - N) * s_x) + s_xy * (N * (t - N) - s_x))/(N * s_xx - s_x ** 2)
-			#b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
 
 			B0.append(b0)
 			B1.append(b1)
