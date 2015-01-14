@@ -256,6 +256,41 @@ class TimeSerie(list):
 	def stdev(self, N):
 		return self.var(N).map(lambda x: x**.5)
 
+	@staticmethod
+	def cov(X, Y, N): 
+		"""
+		Returns covariance for a moving window of size N
+		"""
+		W = X.TimeWindow & Y.TimeWindow
+		if len(W) < N:
+			return TimeSerie.void()
+
+		x = X & W
+		y = Y & W
+
+		s_x  = 0
+		s_y  = 0
+		s_xy = 0
+
+		for i in xrange(N):
+			s_x  += x[i]
+			s_y  += y[i]
+			s_xy += x[i]*y[i]
+
+		cov = [(s_xy - s_x * s_x / N) / (N - 1)]
+		for i in xrange(N, len(W)):
+			s_x  += x[i] - x[i-N]
+			s_y  += y[i] - y[i-N]
+			s_xy += x[i]*y[i] - x[i-N]*y[i-N]
+			cov.append((s_xy - s_x * s_y / N) / (N - 1))
+
+		return TimeSerie(cov, W.rolling(N))
+
+	@staticmethod
+	def corr(X, Y, N): 
+		""" Returns correlation for a moving window of size N """
+		return TimeSerie.cov(X, Y, N) / ((X & Y.TimeWindow).stdev(N) * (Y & X.TimeWindow).stdev(N))
+
 	def SimpleLinearRegr(self, N, shift = 1):
 
 		assert N > 1

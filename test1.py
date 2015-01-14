@@ -16,9 +16,11 @@ x = plot(W)
 x.title(symbol + "   " + str(W))
 
 N = 90
-x.draw(P)
-x.draw(P.sma(N), linewidth = 2, color='green')
-x.draw(LR, linewidth = 2, color='black')
-x.draw(LR+V, linewidth = .5, color='red')
-x.draw(LR-V, linewidth = .5, color='red')
+#x.draw(P)
+#x.draw(P.sma(N), linewidth = 2, color='green')
+#x.draw(LR, linewidth = 2, color='black')
+#x.draw(LR+V, linewidth = .5, color='red')
+#x.draw(LR-V, linewidth = .5, color='red')
+x.draw(TimeSerie.cov(P.variation(), LogPrice('MSFT').variation(), N = 365))
+
 x.show()
