@@ -1,34 +1,24 @@
 from datetime import *
 from data import *
+from timewindow import *
 from timeserie import *
+from graphics import *
 
-import matplotlib.pyplot as plt
-class plot:
-	def __init__(self, TimeWindow):
-		self.W = TimeWindow
-		self.xlabel = 'Date'
-		self.ylabel = 'Price'
-
-	def title(self, title):
-		plt.title(title)
-
-	def draw(self, TimeSerie, **kwargs): # append name and legend
-		ts = TimeSerie & self.W
-		plt.plot(sorted(ts.DateSerie().keys()) , ts[:], **kwargs)
-
-	def show(self):
-		plt.xlabel(self.xlabel)
-		plt.ylabel(self.ylabel)
-		plt.grid(True)
-		plt.show()
 
 symbol = 'GOOGL'
-W = TimeWindow.years(2005,2014)
+W = TimeWindow.years(2010,2014)
 P = LogPrice(symbol)
+
+LR = P.SimpleLinearRegr(91, shift = 0)
+V = P.variation().stdev(365) * 9
 
 x = plot(W)
 x.title(symbol + "   " + str(W))
-#x.draw(r.var(30))
+
+N = 90
 x.draw(P)
-x.draw(P.sma(90), linewidth = 2)
+x.draw(P.sma(N), linewidth = 2, color='green')
+x.draw(LR, linewidth = 2, color='black')
+x.draw(LR+V, linewidth = .5, color='red')
+x.draw(LR-V, linewidth = .5, color='red')
 x.show()

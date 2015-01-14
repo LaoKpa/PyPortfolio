@@ -1,153 +1,27 @@
 #!/usr/bin/env python
 from datetime import *
+from timewindow import *
+from dateserie import *
+import numpy as np
 
-class TimeWindow:
+# Create the following functions:
+# TimeSerie
+#	* __getitem__(date)
+#	* autocorr(N) #  N - window size
+#	* GARCH(s0 = 0.001, w = 0.001, a = 0.05, b = 0.094)
+#	* Hurst(N  = 365)
+#   * Fourier(i, N = 365)
+#	* FourierArray(N)
+#	* FrequencyFilter(filter)			filter is a list or an array
+#	* SimpleLinearRegr(N, shift = 1, returnCoefs = False)
+#	* SimplePolyRegr(n, N, shift = 1, returnCoefs = False)
+#	* MultLinearRegr(X, N, shift = 1, returnCoefs = False)
+#	* @staticmethod cov(X, Y, N = 365)
+#	* @staticmethod corr(X, Y, N = 365)
+#	* @staticmethod covGARCH(X, Y, s0 = 0.001, w = 0.001, a = 0.05, b = 0.094)
+# covMatrix(dict, pairMethod = TimeSerie.corr)
 
-	def __init__(self, begin, end):
-		"""
-		Creates a new TimeWindow begining at 'begin' and ending at 'end'
-		if begin is after end then TimeWindow will be declared as void
-
-		The set of TimeWindows is in bijection with {(a,b)\in \Z^2 | a <= b} \cup {*}
-		where * is the void TimeWindow and the integers a, b came from a given bijection
-		between date and the set of integers \Z
-		"""
-		if begin > end:
-			self.void = True
-		
-		else:
-			self.begin = begin
-			self.end = end
-			self.void = False
-
-	def __and__(self, other):
-		"""
-		Returns the intersection of two TimeWindows W & W'
-		This operation satisfies:
-			W & W = W 			(idempotent)
-			W & W' = W' & W 	(commutative)
-			W & * = * 			(absorbing element)
-		"""
-		if self.void or other.void:
-			return TimeWindow.void()
-
-		elif self.begin > other.end or other.begin > self.end:
-			return TimeWindow.void()
-
-		else:
-			return TimeWindow(
-				max(self.begin, other.begin),
-				min(self.end,   other.end))
-
-	def __contains__(self, other): 
-		"""
-		Returns True or False
-		'c' establishes an order within the TimeSeries
-		in particular:
-			* c W, for all W
-			W & W' c W for all W, W'
-			W + n ~c W for all W, n\in\Z, except when W = *
-		"""
-		if self.void:
-			return False
-
-		if isinstance(other, TimeWindow):
-			if other.void:
-				return True
-			elif other.begin >= self.begin and other.end <= self.end:
-				return True
-
-		elif isinstance(other, date):
-			if other >= self.begin and other <= self.end:
-				return True
-		
-		return False
-
-	def __len__(self):
-		"""
-		Returns the lenght of the TimeWindow
-		Satisfies:
-			* len(W) >= 0
-				equality occurs if and only if W = *
-				otherwise (that is, if W != *) len(W) > 0
-			* len(W + n) = len(W)
-			* len(W & W') <= min(len(W), len(W'))
-				equality occurs if and only if W = W'
-				otherwise (that is, if W != W') len(W & W') < min(len(W), len(W'))
-		"""
-		if self.void:
-			return 0
-		else:
-			return (self.end - self.begin).days + 1
-
-	def shift(self, N):
-		"""
-		This operatior moves the TimeWindow n days forward
-		if n is negative it moves TimeWindow -n bays backwards
-		"""
-		if self.void:
-			return self
-		else:
-			return TimeWindow(
-				self.begin + timedelta(days = N),
-				self.end   + timedelta(days = N))
-
-	def __add__(self, N):
-		return self.shift(N)
-
-	def __sub__(self, N):
-		return self.shift(-N)
-
-	def rolling(self, N):
-		"""
-		This operatior is equivalent to W & (W+N-1)
-		"""
-		return (self & self.shift(N-1))
-
-	def __str__(self):
-		return self.begin.strftime('%d/%m/%Y') + ' - ' + self.end.strftime('%d/%m/%Y') 
-
-	@staticmethod
-	def void():
-		return TimeWindow(1,0)
-
-	@staticmethod
-	def year(year):
-		begin = date(year,1,1)
-		end = date(year,12,31)
-		return TimeWindow(begin, end)
-
-	@staticmethod
-	def years(year1, year2):
-		assert not year1 > year2
-		begin = date(year1,1,1)
-		end = date(year2,12,31)
-		return TimeWindow(begin, end)
-
-class DateSerie(dict):
-	
-	def TimeSerie(self):
-		ts = []
-		date = sorted(self.keys())
-		d = date[0]
-		x = self[d]
-		ts.append(x)
-		for i in xrange(1, len(date)):
-			d_l = d
-			x_l = x
-			d = date[i]
-			x = self[d]
-			L = (d - d_l).days
-			for j in range(L):
-				ts.append(x_l + (x - x_l) * (j + 1) / float(L))
-		return TimeSerie(ts, TimeWindow(min(self.keys()), max(self.keys())))
-
-	def map(self, f):
-		h = DateSerie()
-		for d, v in self.iteritems():
-			h[d] = f(v)
-		return h		
-
+# use np.ndarray instead of list in TimeSerie
 
 class TimeSerie(list):
 	"""
@@ -180,6 +54,19 @@ class TimeSerie(list):
 		for i in xrange(len(self)):
 			h[begin + timedelta(days = i)] = self[i]
 		return h
+
+	def Integral(self):
+		"""
+		Reconstruct a timeSerie from its derivative
+		we set the first value as 0
+		"""
+		if self.void:
+			return self
+		else:
+			ts = [0]
+			for i in xrange(len(self)):
+				ts.append(ts[-1] + self[i])
+			return TimeSerie(ts, TimeWindow(self.TimeWindow.begin - timedelta(days = 1), self.TimeWindow.end)) # the is a more elegant formula?
 
 	def shift(self, N):
 		"""
@@ -220,19 +107,6 @@ class TimeSerie(list):
 				T.append(max(T[-1], self[i]))
 				drawdown.append(T[i] - self[i])
 			return TimeSerie(drawdown, self.TimeWindow)
-		else:
-			return self
-
-	def maxValue(self):
-		"""
-		calculates the max of the list until the current day,
-		that is, max_n = max(x[:n])
-		"""
-		if len(self) > 1:
-			M = [self[0]]
-			for i in xrange(1, len(self)):
-				M.append(max(M[-1], self[i]))
-			return TimeSerie(M, self.TimeWindow)
 		else:
 			return self
 
@@ -380,4 +254,53 @@ class TimeSerie(list):
 		return TimeSerie(var, self.TimeWindow.rolling(N))
 
 	def stdev(self, N):
-		return self.var(N)**.5
+		return self.var(N).map(lambda x: x**.5)
+
+	def SimpleLinearRegr(self, N, shift = 1):
+
+		assert N > 1
+
+		if len(self) < N:
+			return TimeSerie.void()
+
+		s_x  = 0
+		s_xx = 0
+		s_y  = 0
+		s_xy = 0
+		s_yy = 0
+
+		# existe uma formula para s_x e s_xx
+
+		for i in xrange(N):
+			s_x  += i
+			s_y  += self[i]
+			s_xx += i * i
+			s_xy += i * self[i]
+			s_yy += self[i] * self[i]
+
+		b0 = (s_y * s_xx - s_x * s_xy)/(N * s_xx - s_x ** 2)
+		b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
+		B0 = [b0]
+		B1 = [b1]
+		r =  [(N * s_xy - s_x * s_y)/((N * s_xx - s_x ** 2) * (N * s_yy - s_y ** 2))**.5]
+
+		y = [b0 + b1 * (N + shift - 1)]
+
+		for t in xrange(N, len(self)):
+			s_x  += N
+			s_y  += self[t] - self[t-N]
+			s_xx += t**2 - (t-N)**2
+			s_xy += t * self[t] - (t-N) * self[t-N]
+			s_yy += self[t] ** 2 - self[t-N] ** 2
+
+			b0 = (s_y * s_xx - s_x * s_xy)/(N * s_xx - s_x ** 2)
+			b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
+			#b0 = (s_y * (s_xx - (t - N) * s_x) + s_xy * (N * (t - N) - s_x))/(N * s_xx - s_x ** 2)
+			#b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
+
+			B0.append(b0)
+			B1.append(b1)
+			r.append((N * s_xy - s_x * s_y)/((N * s_xx - s_x ** 2) * (N * s_yy - s_y ** 2))**.5)
+			y.append(b0 + b1 * (t + shift))
+
+		return TimeSerie(y, self.TimeWindow.rolling(N) + shift)

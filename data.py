@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 from datetime import *
-from timeserie import *
+from dateserie import *
+
+# create a new class that stores data from several stocks
+# cut the date of begining to memory savings purposes (for instance, BeginDate = year(2000))
+
+# import from another sources than yahoo finance
+# import financial statements
+#	* income statement
+#	* balance sheet
+#	* cash flow statement
+
+# storage financial data in a sqlite database instead of files
 
 class QuoteIO:
 
@@ -16,7 +27,7 @@ class QuoteIO:
 	def __download(self, since = date(1900,1,1)):
 		"""
 		Downloads data from yahoo finance from date begin until today
-		(another sources than yahoo may be considered in future)
+		(other sources than yahoo finance may be considered in future)
 		"""
 		from urllib import urlopen
 		until = date.today()
