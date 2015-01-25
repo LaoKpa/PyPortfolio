@@ -1,48 +1,37 @@
 #!/usr/bin/env python
 from datetime import *
-from timewindow import *
 from dateserie import *
+import timewindow
 import numpy as np
 
 # Create the following functions:
-# TimeSerie
 #	* __getitem__(date)
-#	* autocorr(N) #  N - window size
-#	* GARCH(s0 = 0.001, w = 0.001, a = 0.05, b = 0.094)
-#	* Hurst(N  = 365)
-#   * Fourier(i, N = 365)
-#	* FourierArray(N)
-#	* FrequencyFilter(filter)			filter is a list or an array
-#	* SimpleLinearRegr(N, shift = 1, returnCoefs = False)
-#	* SimplePolyRegr(n, N, shift = 1, returnCoefs = False)
-#	* MultLinearRegr(X, N, shift = 1, returnCoefs = False)
-#	* @staticmethod cov(X, Y, N = 365)
-#	* @staticmethod corr(X, Y, N = 365)
-#	* @staticmethod covGARCH(X, Y, s0 = 0.001, w = 0.001, a = 0.05, b = 0.094)
-# covMatrix(dict, pairMethod = TimeSerie.corr)
-
-# use np.ndarray instead of list in TimeSerie
+#	* autocorr(N)
+#	* Hurst(N)
+#   * Fourier(i, N)
+#	* ema(N)
 
 class TimeSerie(list):
-	"""
-	pairs (W, x)
-		x \in A^{len(W)}
-
-	We have the injections for a\in A:
-		i_a: W -> (W, a^{len(W)})
-	And the projection:
-		p : (W, x) -> W
-	"""
+	""" Pairs (W, x), where x \in A^{len(W)} """
 
 	def __init__(self, ts, TimeWindow):
 		"""
-		We need to assert that the length of the list equals the length of the TimeWindow
+		We need to assert that the length of the list equals the length of the TimeWindowateSerie()
 		in further versions we may consider TimeSeries ignoring weekends (when almost all markets are closed)
 		or just for specifics days, as the end of the weeks, months or years
 		"""
-		assert len(ts) == len(TimeWindow)
-		self.extend(ts)
-		self.TimeWindow = TimeWindow
+		if isinstance(ts, list):
+			assert len(ts) == len(TimeWindow)
+			self.extend(ts)
+			self.TimeWindow = TimeWindow
+		else: # is a scalar
+			"""
+			We have the injections for a\in A:
+			i_a: W -> (W, a^{len(W)})
+			"""
+			for i in xrange(len(TimeWindow)):
+				self.append(ts)
+			self.TimeWindow = TimeWindow
 
 	@staticmethod
 	def void():
@@ -60,18 +49,16 @@ class TimeSerie(list):
 		Reconstruct a timeSerie from its derivative
 		we set the first value as 0
 		"""
-		if self.void:
+		if self.TimeWindow.void:
 			return self
 		else:
 			ts = [0]
 			for i in xrange(len(self)):
 				ts.append(ts[-1] + self[i])
-			return TimeSerie(ts, TimeWindow(self.TimeWindow.begin - timedelta(days = 1), self.TimeWindow.end)) # the is a more elegant formula?
+			return TimeSerie(ts, self.TimeWindow.extendleft())
 
 	def shift(self, N):
-		"""
-		This is the operation that sends (W, x) to (W + n, x)
-		"""
+		""" This is the operation that sends (W, x) to (W + n, x) """
 		return TimeSerie(self, self.TimeWindow.shift(N))
 
 	def __and__(self, TimeWindow):
@@ -82,10 +69,9 @@ class TimeSerie(list):
 			where x| is defined by:
 				x|_n = x_{n + max(b'-b, 0)}
 
-		notice that:
+		Notice that:
 			* i_a(W) & W' = i_a(W & W')
 			* p((W, x) & W') = W & W'
-
 		"""
 		W = self.TimeWindow & TimeWindow
 		if not W.void:
@@ -95,9 +81,12 @@ class TimeSerie(list):
 		else:
 			return TimeSerie.void()
 
+	def __iand__(self, TimeWindow):
+		return self & TimeWindow
+
 	def drawdown(self):
 		"""
-		calculates the drawdown of the list
+		Calculates the drawdown of the list
 		that is, the serie dd_n = max(x[:n]) - x[n]
 		"""
 		if len(self) > 0:
@@ -120,6 +109,11 @@ class TimeSerie(list):
 				sma.append(sma[-1] + (self[i] - self[i-N])/N)
 			return TimeSerie(sma, self.TimeWindow.rolling(N))
 
+	def ema(self, N = 7):
+		""" Exponential Moving Average """
+		# a = 1/N
+		pass
+
 	def wma(self, N = 7):
 		""" Weighted Moving Average """
 		if len(self) < N:
@@ -132,7 +126,6 @@ class TimeSerie(list):
 				wma.append((N * self[i] + D * wma[i-N] - N * sma[i-N])/D)
 			return TimeSerie(wma, self.TimeWindow.rolling(N))
 
-	# verificar
 	def variation(self, N = 1):
 		""" Returns P_t - P_{t-N} """
 		r = []
@@ -140,15 +133,12 @@ class TimeSerie(list):
 			r.append(self[i] - self[i-N])
 		return TimeSerie(r, self.TimeWindow.rolling(N+1))
 
-	def map(self, f):
-		return TimeSerie(map(f, self), self.TimeWindow)
-
 	def __add__(self, other):
 		"""
-		if 'other' is of numeric type, then
+		If 'other' is of numeric type, then
 			(W, x) + a = (W, x + a)
 			where x + a is defined by (x+a)_n = x_n + a
-		if 'other' is another TimeSerie, then
+		If 'other' is another TimeSerie, then
 			(W, x) + (W', x') = (W & W', x'')
 			where x'' is defined by x''_n = x_{n + max(b'-b, 0)} + x'_{n + max(b-b', 0)}
 		"""
@@ -219,8 +209,18 @@ class TimeSerie(list):
 					ts.append(self[d_s + i] / other[d_o + i])
 				return TimeSerie(ts, W)
 
+	def map(self, f):
+		return TimeSerie(map(f, self), self.TimeWindow)
+
 	def __abs__(self):
 		return self.map(abs)
+
+	def __pow__(self, a):
+		""" Returns x^a if a is odd, otherwise returns |x|^a """
+		if a%2 == 1:
+			return self.map(lambda x: x**a)
+		else:
+			return self.map(lambda x: abs(x)**a)
 
 	def log(self):
 		from math import log
@@ -229,6 +229,12 @@ class TimeSerie(list):
 	def exp(self):
 		from math import exp
 		return self.map(exp)
+
+	def stdev(self, N):
+		return self.var(N).sqrt()
+
+	def sqrt(self):
+		return self.map(lambda x: abs(x)**.5)
 
 	def var(self, N): 
 		"""
@@ -253,14 +259,26 @@ class TimeSerie(list):
 
 		return TimeSerie(var, self.TimeWindow.rolling(N))
 
-	def stdev(self, N):
-		return self.var(N).map(lambda x: x**.5)
+
+	def garch(self, N = 91): # subtrair o valor medio faz uma diferenca insignificante
+		assert N > 1
+		
+		if len(self) < N:
+			return TimeSerie.void()
+
+		a = 1/float(N)
+
+		garch = [sum([self[i]**2 for i in xrange(N)])/N]
+
+		for i in xrange(N, len(self)):
+			garch.append(a * self[i]**2 + (1-a) * garch[-1])
+
+		return TimeSerie(garch, self.TimeWindow.rolling(N))
+
 
 	@staticmethod
-	def cov(X, Y, N): 
-		"""
-		Returns covariance for a moving window of size N
-		"""
+	def cov(N, X, Y): 
+		""" Returns covariance for a moving window of size N """
 		W = X.TimeWindow & Y.TimeWindow
 		if len(W) < N:
 			return TimeSerie.void()
@@ -277,7 +295,7 @@ class TimeSerie(list):
 			s_y  += y[i]
 			s_xy += x[i]*y[i]
 
-		cov = [(s_xy - s_x * s_x / N) / (N - 1)]
+		cov = [(s_xy - s_x * s_y / N) / (N - 1)]
 		for i in xrange(N, len(W)):
 			s_x  += x[i] - x[i-N]
 			s_y  += y[i] - y[i-N]
@@ -287,37 +305,60 @@ class TimeSerie(list):
 		return TimeSerie(cov, W.rolling(N))
 
 	@staticmethod
-	def corr(X, Y, N): 
+	def corr(N, X, Y): 
 		""" Returns correlation for a moving window of size N """
-		return TimeSerie.cov(X, Y, N) / ((X & Y.TimeWindow).stdev(N) * (Y & X.TimeWindow).stdev(N))
+		return TimeSerie.cov(N, X, Y) / ((X & Y.TimeWindow).stdev(N) * (Y & X.TimeWindow).stdev(N))
+
+	@staticmethod
+	def covGarch(N, X, Y):
+		
+		assert N > 1
+		
+		W = X.TimeWindow & Y.TimeWindow
+
+		if len(W) < N:
+			return TimeSerie.void()
+
+		a = 1/float(N)
+
+		x = X & W
+		y = Y & W
+
+		cov = [sum([x[i]*y[i] for i in xrange(N)]) / (N - 1)]
+
+		for i in xrange(N, len(W)):
+			cov.append(a * x[i] * y[i] + (1-a) * cov[-1])
+
+		return TimeSerie(cov, W.rolling(N))
+
+	@staticmethod
+	def corrGarch(N, X, Y): 
+		""" Returns correlation for a moving window of size N """
+		return TimeSerie.covGarch(N, X, Y) / ((X & Y.TimeWindow).garch(N) * (Y & X.TimeWindow).garch(N)).sqrt()
 
 	def SimpleLinearRegr(self, N, shift = 1):
-
-		assert N > 1
 
 		if len(self) < N:
 			return TimeSerie.void()
 
-		s_x  = 0
-		s_xx = 0
+		s_x  = N*(N-1)/2
+		s_xx = N*(N-1)*(2*N-1)/6
 		s_y  = 0
 		s_xy = 0
 		s_yy = 0
 
-		# existe uma formula para s_x e s_xx
-
 		for i in xrange(N):
-			s_x  += i
 			s_y  += self[i]
-			s_xx += i * i
 			s_xy += i * self[i]
 			s_yy += self[i] * self[i]
 
-		b0 = (s_y * s_xx - s_x * s_xy)/(N * s_xx - s_x ** 2)
-		b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
+		# N * s_xx - s_x ** 2 = N*N*(N*N-1)/12
+
+		b0 = (s_y * s_xx - s_x * s_xy) / (N*N*(N*N-1)/12)
+		b1 = (N * s_xy - s_x * s_y) / (N*N*(N*N-1)/12)
 		B0 = [b0]
 		B1 = [b1]
-		r =  [(N * s_xy - s_x * s_y)/((N * s_xx - s_x ** 2) * (N * s_yy - s_y ** 2))**.5]
+		r =  [(N * s_xy - s_x * s_y)/( (N*N*(N*N-1)/12) * (N * s_yy - s_y ** 2))**.5]
 
 		y = [b0 + b1 * (N + shift - 1)]
 
@@ -328,12 +369,66 @@ class TimeSerie(list):
 			s_xy += t * self[t] - (t-N) * self[t-N]
 			s_yy += self[t] ** 2 - self[t-N] ** 2
 
-			b0 = (s_y * s_xx - s_x * s_xy)/(N * s_xx - s_x ** 2)
-			b1 = (N * s_xy - s_x * s_y)/(N * s_xx - s_x ** 2)
+			b0 = (s_y * s_xx - s_x * s_xy) / (N*N*(N*N-1)/12)
+			b1 = (N * s_xy - s_x * s_y) / (N*N*(N*N-1)/12)
 
 			B0.append(b0)
 			B1.append(b1)
-			r.append((N * s_xy - s_x * s_y)/((N * s_xx - s_x ** 2) * (N * s_yy - s_y ** 2))**.5)
+
+			r.append((N * s_xy - s_x * s_y)/( (N*N*(N*N-1)/12) * (N * s_yy - s_y ** 2))**.5)
 			y.append(b0 + b1 * (t + shift))
 
 		return TimeSerie(y, self.TimeWindow.rolling(N) + shift)
+
+	def MultLinearRegr(self, N, *args, **kwargs): #falta verificar!!!
+
+		n = len(args)
+		W = self.TimeWindow
+		for k in xrange(n):
+			W &= args[k].TimeWindow
+
+		if len(W) < N:
+			return TimeSerie.void()
+
+		Y = self & W
+		X = [args[k] & W for k in xrange(n)]
+
+		XTX = np.matrix(np.zeros((n,n)))
+		XTY = np.zeros(n)
+
+		for i in xrange(n):
+
+			XTX[i,i] = sum([X[i][t] ** 2   for t in xrange(N)])
+			XTY[i]   = sum([X[i][t] * Y[t] for t in xrange(N)])
+
+			for j in xrange(i):
+				s_ij = sum([X[i][t] * X[j][t] for t in xrange(N)])
+				XTX[i,j] = s_ij
+				XTX[j,i] = s_ij
+
+		b_ = []
+		x_ = []
+		y_ = []
+		x_.append(np.array([X[i][0] for i in xrange(n)]))
+		b_.append(np.linalg.solve(XTX, XTY))
+		y_.append(np.inner(b_[-1], x_[-1]))
+
+		for t in xrange(N, len(W)):
+
+			for i in xrange(n):
+				XTX[i,i] += X[i][t]**2 - X[i][t-N]**2
+				XTY[i]   += X[i][t] * Y[t] - X[i][t-N] * Y[t-N]
+
+				for j in xrange(i):
+					ds_ij = X[i][t] * X[j][t] - X[i][t-N] * X[j][t-N]
+					XTX[i,j] += ds_ij
+					XTX[j,i] += ds_ij
+
+			x_.append(np.array([X[i][t] for i in xrange(n)]))
+			b_.append(np.linalg.solve(XTX, XTY))
+			y_.append(np.inner(b_[-1], x_[-1]))
+
+		if 'error' in kwargs.keys() and kwargs['error'] is True:
+			return TimeSerie(y_, W.rolling(N)), TimeSerie(b_, W.rolling(N))
+		else:
+			return TimeSerie(y_, W.rolling(N))

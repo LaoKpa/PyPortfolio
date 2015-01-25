@@ -98,14 +98,18 @@ class TimeWindow:
 	def __sub__(self, N):
 		return self.shift(-N)
 
+	def extend(self, N = 1):
+		return TimeWindow(self.begin, self.end + timedelta(days = N))
+
+	def extendleft(self, N = 1):
+		return TimeWindow(self.begin - timedelta(days = N), self.end)
+
 	def rolling(self, N):
-		"""
-		This operatior is equivalent to W & (W+N-1)
-		"""
+		""" This operatior is equivalent to W & (W+N-1) """
 		return (self & self.shift(N-1))
 
 	def __str__(self):
-		return self.begin.strftime('%d/%m/%Y') + ' - ' + self.end.strftime('%d/%m/%Y') 
+		return self.begin.strftime('%d/%m/%Y') + ' - ' + self.end.strftime('%d/%m/%Y')
 
 	@staticmethod
 	def void():
@@ -115,6 +119,13 @@ class TimeWindow:
 	def year(year):
 		begin = date(year,1,1)
 		end = date(year,12,31)
+		return TimeWindow(begin, end)
+
+	@staticmethod
+	def month(month, year):
+		begin = date(year, month, 1)
+		a, m = divmod(month, 12)
+		end = date(year+a, m+1, 1) - timedelta(days = 1)
 		return TimeWindow(begin, end)
 
 	@staticmethod

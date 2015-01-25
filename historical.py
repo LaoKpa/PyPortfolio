@@ -2,24 +2,12 @@
 from datetime import *
 from dateserie import *
 
-# create a new class that stores data from several stocks
-# cut the date of begining to memory savings purposes (for instance, BeginDate = year(2000))
-
-# import from another sources than yahoo finance
-# import financial statements
-#	* income statement
-#	* balance sheet
-#	* cash flow statement
-
-# storage financial data in a sqlite database instead of files
-
-class QuoteIO:
-
-	folder = 'data/'
-	ext =  '.txt'
+class Historical:
 
 	def __init__(self, symbol):
 		self.symbol = symbol
+		self.folder = 'Historical/'
+		self.ext =  '.txt'
 
 	def __path(self):
 		return self.folder + self.symbol + self.ext
@@ -47,14 +35,14 @@ class QuoteIO:
 				self.data.append(c)
 			self.data.reverse()
 		except:
-			pass
+			print 'Error downloading ' + self.symbol
 
 	def __write(self):
 		with open(self.__path(), 'w') as f:
 			f.write('DATE\t\tOPEN\tHIGH\tLOW\tCLOSE\tADJ\tVOL\n')
 			for l in self.data:
 				strline = l[0]
-				for i in xrange(1, 6):
+				for i in xrange(1, 7):
 					strline += '\t' + l[i];
 				strline += '\n'
 				f.write(strline)
@@ -63,7 +51,7 @@ class QuoteIO:
 		with open(self.__path(), 'a') as f:
 			for l in self.data:
 				strline = l[0]
-				for i in xrange(1, 6):
+				for i in xrange(1, 7):
 					strline += '\t' + l[i];
 				strline += '\n'
 				f.write(strline)
@@ -122,17 +110,23 @@ class QuoteIO:
 		remove(self.__path())
 
 	@staticmethod
-	def loaded(symbol):
-		quote = QuoteIO(symbol)
+	def load(symbol):
+		quote = Historical(symbol)
 		quote.read()
 		return quote
 
 def LogPrice(symbol):
 	from math import log
-	return QuoteIO.loaded(symbol).DateSerie().map(log).TimeSerie()
+	return Historical.load(symbol).DateSerie().map(log).TimeSerie()
 
 def LogReturns(symbol):
 	return LogPrice(symbol).variation()
 
-
-
+"""
+with open('sp400.txt','r') as f:
+	for line in f:
+		symbol = line[:-1]
+		print symbol
+		f = Historical(symbol)
+		f.update()
+"""
