@@ -14,7 +14,6 @@ class DateSerie(dict):
 			* exp			: ...
 			* previous/None	: ...
 		"""
-		mode = mode.lower()
 		ts = []
 		date = sorted(self.keys())
 
@@ -47,7 +46,7 @@ class DateSerie(dict):
 
 		else:
 			d_next = date[0]
-			for i in xrange(len(date) - 1):
+			for i in xrange(1, len(date)):
 				d = d_next
 				d_next = date[i]
 				L = (d_next - d).days

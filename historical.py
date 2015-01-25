@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from datetime import *
 from dateserie import *
+from urllib import urlopen
 
 class Historical:
 
@@ -17,7 +18,6 @@ class Historical:
 		Downloads data from yahoo finance from date begin until today
 		(other sources than yahoo finance may be considered in future)
 		"""
-		from urllib import urlopen
 		until = date.today()
 
 		url = 'http://ichart.yahoo.com/table.csv?s=%s&d=%s&e=%s&f=%s&g=d&a=%s&b=%s&c=%s&ignore=.csv' % (self.symbol,
@@ -185,14 +185,15 @@ class Historical:
 			for symbol, q in quote.iteritems():
 				q.read()
 				price[symbol] = q.DateSerie().TimeSerie()
+			return price
 		elif action in ['read', 'load']:
 			for symbol in quote.iterkeys():
 				quote[symbol].read()
-				return quote
+			return quote
 		elif action in ['download']:
 			for symbol in quote.iterkeys():
 				quote[symbol].__download()
-				return quote
+			return quote
 		elif action in ['update']:
 			for symbol in quote.iterkeys():
 				quote[symbol].__update()
@@ -206,3 +207,5 @@ def LogPrice(symbol):
 
 def LogReturns(symbol):
 	return LogPrice(symbol).variation()
+
+q = Historical.list('sp400.txt','read')
