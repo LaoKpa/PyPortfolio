@@ -83,31 +83,79 @@ class Historical:
 				newLine[-1] = newLine[-1][:-1]
 				self.data.append(newLine)
 	
-	def DateSerie(self, i = 5):
+	def DateSerie(self, value = 'Adj'):
 		"""
 		Returns a DateSerie (dictionary) created from self.data,
-		except when i = 0, when returns the list of dates
-		Input:
-			0 - date
-			1 - open
-			2 - high
-			3 - low
-			4 - close
-			5 - adjusted close
-			6 - volume
+		except when value = 'Date', when returns the list of dates
+		Input (is converted to lowcase)
+			'Date'          - date
+			'Open'          - open
+			'High'          - high
+			'Low'           - low
+			'Close'         - close
+			'Adj'	        - adjusted close
+			'Vol', 'Volume' - volume
+			other values	- all
 		"""
-		if i == 0:
+		value = value.lower()
+		map = {
+			'open'	: 1,
+			'high'	: 2,
+			'low'	: 3,
+			'close'	: 4,
+			'adj'	: 5,
+			'vol'	: 6,
+			'volume':6,
+			}
+
+		if value == 'date':
 			return [datetime.strptime(line[0], '%Y-%m-%d').date() for line in self.data]
-		else:
+
+		elif value in map.keys():
 			h = DateSerie()
+			i = map[value]
 			for line in self.data:
 				d = datetime.strptime(line[0], '%Y-%m-%d').date()
 				h[d] = float(line[i])
 			return h
 
+		else:
+			h = DateSerie()
+			for line in self.data:
+				d = datetime.strptime(line[0], '%Y-%m-%d').date()
+				h[d] = [float(line[i]) for i in xrange(1, 7)]
+			return h			
+
 	def purge(self):
 		from os import remove
 		remove(self.__path())
+
+	def clean_data(self, margin = .5):
+		self.read()
+		problem = False
+
+		p = float(self.data[0][5])
+		for i in xrange(1, len(self.data)):
+			p_a = p
+			p = float(self.data[i][5])
+			if abs(p - p_a) >= margin * p_a:
+				print 'Abdormal return found for %s on %s, with a ratio of %f' % (self.symbol, self.data[i][0], p/p_a)
+				print self.data[i-1]
+				print self.data[i]
+				print ''
+				problem = True
+
+		if problem:
+			answer = raw_input('Do you want to (re)update data? (y/n)')
+			if answer.lower() == 'y':
+				self.update()
+				print '...'
+				print 'Completed update'
+				answer = raw_input('Do you want to re-check data? (y/n)')
+				if answer.lower() == 'y':
+					self.clean_data(margin)
+		else:
+			print 'Data from %s is clean' % self.symbol
 
 	@staticmethod
 	def load(symbol):
@@ -115,18 +163,46 @@ class Historical:
 		quote.read()
 		return quote
 
+	@staticmethod
+	def list(file, action = 'Read'):
+		"""
+		action:
+			price
+			read/load
+			download
+			update
+			clean/clean_data
+		"""
+		action = action.lower()
+		quote = dict()
+		with open(file, 'r') as f:
+			for line in f: #atention if there is a header
+				symbol = line[:-1] #atention if there is another columns
+				quote[symbol] = Historical(symbol)
+
+		if action in ['price']:
+			price = dict()
+			for symbol, q in quote.iteritems():
+				q.read()
+				price[symbol] = q.DateSerie().TimeSerie()
+		elif action in ['read', 'load']:
+			for symbol in quote.iterkeys():
+				quote[symbol].read()
+				return quote
+		elif action in ['download']:
+			for symbol in quote.iterkeys():
+				quote[symbol].__download()
+				return quote
+		elif action in ['update']:
+			for symbol in quote.iterkeys():
+				quote[symbol].__update()
+		elif action in ['clean', 'clean_data']:
+			for symbol in quote.iterkeys():
+				quote[symbol].clean_data()
+
 def LogPrice(symbol):
 	from math import log
 	return Historical.load(symbol).DateSerie().map(log).TimeSerie()
 
 def LogReturns(symbol):
 	return LogPrice(symbol).variation()
-
-"""
-with open('sp400.txt','r') as f:
-	for line in f:
-		symbol = line[:-1]
-		print symbol
-		f = Historical(symbol)
-		f.update()
-"""

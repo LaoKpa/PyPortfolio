@@ -16,7 +16,7 @@ class TimeSerie(list):
 
 	def __init__(self, ts, TimeWindow):
 		"""
-		We need to assert that the length of the list equals the length of the TimeWindowateSerie()
+		We need to assert that the length of the list equals the length of the TimeWindow
 		in further versions we may consider TimeSeries ignoring weekends (when almost all markets are closed)
 		or just for specifics days, as the end of the weeks, months or years
 		"""
