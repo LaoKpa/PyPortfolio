@@ -20,41 +20,82 @@ class Historical:
 		"""
 		until = date.today()
 
-		url = 'http://ichart.yahoo.com/table.csv?s=%s&d=%s&e=%s&f=%s&g=d&a=%s&b=%s&c=%s&ignore=.csv' % (self.symbol,
-				str(until.month - 1), str(until.day), str(until.year),
-				str(since.month - 1), str(since.day), str(since.year))
+		input_tuple = (self.symbol,
+			str(since.month - 1), str(since.day), str(since.year),
+			str(until.month - 1), str(until.day), str(until.year))
 
-		strdata = urlopen(url)
-		strdata.readline()
-		self.data = []
+		self.data = dict()
+
+		url_price = 'http://ichart.yahoo.com/table.csv?s=%s&g=d&a=%s&b=%s&c=%s&d=%s&e=%s&f=%s&ignore=.csv' % input_tuple
+		url_div	=   'http://ichart.finance.yahoo.com/x?s=%s&g=v&a=%s&b=%s&c=%s&d=%s&e=%s&f=%s&ignore=.csv' % input_tuple
 
 		try:
-			for line in strdata:
+			price_data = urlopen(url_price)
+			price_data.readline()
+			for line in price_data:
 				c = line.split(',')
-				c[5], c[-1] = c[-1][:-1], c[5]
-				self.data.append(c)
-			self.data.reverse()
+				d = datetime.strptime(c[0],'%Y-%m-%d').date()
+				row = [
+					float(c[1]),		# Open
+					float(c[2]),		# High
+					float(c[3]),		# Low
+					float(c[4]),		# Close
+					float(c[-1][:-1]),	# Adj
+					0,					# Div 		(to be edited latter)
+					(1,1),				# Split		(to be edited latter)
+					int(c[5])]			# Volume
+				self.data[d] = row
+
+			div_data = urlopen(url_div)
+			div_data.readline()
+
+			for line in div_data:
+				c = line.split(',')
+				if c[0] == 'DIVIDEND':
+					d = date(int(c[1][1:5]), int(c[1][5:7]), int(c[1][7:9]))
+					self.data[d][5] = float(c[2][:-1])
+				elif c[0] == 'SPLIT':
+					d = date(int(c[1][1:5]), int(c[1][5:7]), int(c[1][7:9]))
+					split = c[2][:-1].split(':')
+					self.data[d][6] = (int(split[0]), int(split[1]))
+
 		except:
 			print 'Error downloading ' + self.symbol
 
 	def __write(self):
 		with open(self.__path(), 'w') as f:
-			f.write('DATE\t\tOPEN\tHIGH\tLOW\tCLOSE\tADJ\tVOL\n')
-			for l in self.data:
-				strline = l[0]
-				for i in xrange(1, 7):
-					strline += '\t' + l[i];
-				strline += '\n'
-				f.write(strline)
+			column_width = 10
+			f.write('Date      ')
+			f.write('      Open')
+			f.write('      High')
+			f.write('       Low')
+			f.write('     Close')
+			f.write('       Adj')
+			f.write('       Div')
+			f.write('     Split')
+			f.write('      Volume')
+			f.write('\n')
+			for d in sorted(self.data.iterkeys()):
+				row = self.data[d]
+				line = d.strftime('%Y-%m-%d')
+				for i in xrange(5):
+					line += '%*.2f' % (column_width, row[i])
+				line += '%*s'     % (column_width, row[5])		# Dividend
+				line += ('%d:%d'  % row[6]).rjust(column_width)	# Split
+				line += '  %*d\n' % (column_width, row[7])		# Volume
+				f.write(line)
 
 	def __append(self):
 		with open(self.__path(), 'a') as f:
-			for l in self.data:
-				strline = l[0]
-				for i in xrange(1, 7):
-					strline += '\t' + l[i];
-				strline += '\n'
-				f.write(strline)
+			for d in sorted(self.data.iterkeys()):
+				row = self.data[d]
+				line = d.strftime('%Y-%m-%d')
+				for i in xrange(5):
+					line += '%*.2f' % (column_width, row[i])
+				line += '%*s'     % (column_width, row[5])		# Dividend
+				line += ('%d:%d'  % row[6]).rjust(column_width)	# Split
+				line += '  %*d\n' % (column_width, row[7])		# Volume
+				f.write(line)
 
 	def update(self):
 		""" Download data from the server and update information at the database file """
@@ -77,60 +118,79 @@ class Historical:
 		""" Read data from the file (and write them at self.data) """
 		with open(self.__path(), 'r') as f:
 			f.readline()
-			self.data = []
+			self.data = dict()
 			for line in f:
-				newLine = line.split('\t')
-				newLine[-1] = newLine[-1][:-1]
-				self.data.append(newLine)
+				d = datetime.strptime(line[:10], '%Y-%m-%d').date()
+				c = line[13:-1].split()
+				row = []
+				for i in xrange(6):
+					row.append(float(c[i]))
+				row.append(tuple(map(int, c[6].split(':'))))
+				row.append(int(c[7]))
+				self.data[d] = row
 	
 	def DateSerie(self, value = 'Adj'):
 		"""
 		Returns a DateSerie (dictionary) created from self.data,
 		except when value = 'Date', when returns the list of dates
 		Input (is converted to lowcase)
-			'Date'          - date
-			'Open'          - open
-			'High'          - high
-			'Low'           - low
-			'Close'         - close
-			'Adj'	        - adjusted close
-			'Vol', 'Volume' - volume
-			other values	- all
+			'Date'          	- date
+			'Open'          	- open
+			'High'          	- high
+			'Low'           	- low
+			'Close'         	- close
+			'Adj'	        	- adjusted close
+			'Div', 'Dividend'	- dividends
+			'Split'				- split ratio
+			'Vol', 'Volume' 	- volume
+			other values		- all
 		"""
 		value = value.lower()
-		map = {
-			'open'	: 1,
-			'high'	: 2,
-			'low'	: 3,
-			'close'	: 4,
-			'adj'	: 5,
-			'vol'	: 6,
-			'volume':6,
-			}
+		convert = {
+			'open'		: 0,
+			'high'		: 1,
+			'low'		: 2,
+			'close'		: 3,
+			'adj'		: 4,
+			'div'		: 5,
+			'dividend'	: 5,
+			'vol'		: 7,
+			'volume'	: 7}
 
-		if value == 'date':
-			return [datetime.strptime(line[0], '%Y-%m-%d').date() for line in self.data]
+		if isinstance(value, str):
+			value = value.lower()
+			
+			if value == 'all':
+				pass
 
-		elif value in map.keys():
-			h = DateSerie()
-			i = map[value]
-			for line in self.data:
-				d = datetime.strptime(line[0], '%Y-%m-%d').date()
-				h[d] = float(line[i])
-			return h
+			elif value == 'date':
+				return sorted(self.data.keys())
 
-		else:
-			h = DateSerie()
-			for line in self.data:
-				d = datetime.strptime(line[0], '%Y-%m-%d').date()
-				h[d] = [float(line[i]) for i in xrange(1, 7)]
-			return h			
+			elif value == 'split':
+				h = DateSerie()
+				i = 6
+				for d in self.data.iterkeys():
+					h[d] = float(self.data[d][6][0])/float(self.data[d][6][1])
+				return h
+
+			elif value in convert.keys():
+				h = DateSerie()
+				i = convert[value]
+				for d in self.data.iterkeys():
+					h[d] = float(self.data[d][i])
+				return h	
+		
+		return self.data		
 
 	def purge(self):
 		from os import remove
 		remove(self.__path())
 
 	def clean_data(self, margin = .5):
+		"""
+		See if there are abdormal returns within data
+		if there are, compare data with google finance data to acess veracity
+		"""
 		self.read()
 		problem = False
 
@@ -139,11 +199,16 @@ class Historical:
 			p_a = p
 			p = float(self.data[i][5])
 			if abs(p - p_a) >= margin * p_a:
-				print 'Abdormal return found for %s on %s, with a ratio of %f' % (self.symbol, self.data[i][0], p/p_a)
+				d = self.data[i][0]
+				print 'Abdormal return found for %s on %s, with a ratio of %f' % (self.symbol, d, p/p_a)
 				print self.data[i-1]
 				print self.data[i]
 				print ''
 				problem = True
+				# url = "http://www.google.com/finance/historical?q=%s&startdate=%s&enddate=%s&output=csv" % (
+				#	self.symbol,
+				#	self.data[i-1][0].strftime('%b+%d,+%Y'),
+				#	self.data[i][0].strftime('%b+%d,+%Y'))
 
 		if problem:
 			answer = raw_input('Do you want to (re)update data? (y/n)')
@@ -166,12 +231,13 @@ class Historical:
 	@staticmethod
 	def list(file, action = 'Read'):
 		"""
-		action:
-			price
-			read/load
-			download
-			update
-			clean/clean_data
+		Applies the 'action' to the list of symbols in file
+		Options:
+			* price
+			* read/load
+			* download
+			* update
+			* clean/clean_data
 		"""
 		action = action.lower()
 		quote = dict()
@@ -208,4 +274,9 @@ def LogPrice(symbol):
 def LogReturns(symbol):
 	return LogPrice(symbol).variation()
 
-q = Historical.list('sp400.txt','read')
+# q = Historical('XOM')
+# q.read()
+# print q.data[date(2015,1,20)]
+
+p = LogPrice('XOM')
+print p[-1]

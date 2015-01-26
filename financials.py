@@ -175,7 +175,7 @@ class FinancialData:
 					self.data[k].append(float(td['title'].encode('UTF-8').replace(',', '')))
 					col_count += 1
 
-		# if Gross Profit(GM) is not defined we suppose that COGS = 0
+		# If Gross Profit(GM) is not defined we suppose that COGS = 0
 		# and then Gross Profit (GP) = Operating Income
 		# in that case we also set Gross Margin % = 100 %
 		# because usually when GP is not available GP is set to zero what is not true

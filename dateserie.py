@@ -52,7 +52,7 @@ class DateSerie(dict):
 				L = (d_next - d).days
 				for j in range(L):
 					ts.append(self[d])
-			ts.append(date[-1])
+			ts.append(self[date[-1]])
 
 		return TimeSerie(ts, TimeWindow(min(self.keys()), max(self.keys())))
 

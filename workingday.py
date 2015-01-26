@@ -27,7 +27,6 @@ class workingday(date):
 			w1 = self.weekday()
 			d1 = super(workingday, self).__add__(timedelta(days = -w1))
 			d2 = super(workingday, other).__add__(timedelta(days = -w1))
-			# now d1 - d2 = 7*a + b
 			a, b = divmod((d1 - d2).days, 7)
 			return 5*a + b
 
@@ -35,6 +34,11 @@ class workingday(date):
 		a = int((self.weekday() + n)/5)
 		b = n - 5*a
 		d = super(workingday, self).__add__(timedelta(days = 7*a + b))
+		return workingday(d.year, d.month, d.day)
+
+	@staticmethod
+	def strptime(inputstr, strformat):
+		d = datetime.strptime(inputstr, strformat)
 		return workingday(d.year, d.month, d.day)
 
 	@staticmethod
