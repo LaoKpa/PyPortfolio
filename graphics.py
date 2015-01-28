@@ -12,7 +12,11 @@ class plot:
 
 	def draw(self, TimeSerie, **kwargs): # append name and legend
 		ts = TimeSerie & self.W
-		plt.plot(sorted(ts.DateSerie().keys()) , ts[:], **kwargs)
+
+		plt.plot(ts.keys() , ts[:], **kwargs)
+
+	def scatter(self, x, y, **kwargs): # append name and legend
+		plt.plot(x, y, **kwargs)
 
 	def show(self):
 		plt.xlabel(self.xlabel)

@@ -1,4 +1,5 @@
-from datetime import *
+from datetime import date
+from workingday import *
 from urllib import urlopen
 from bs4 import BeautifulSoup as parser
 from dateserie import DateSerie
@@ -131,10 +132,8 @@ class FinancialData:
 
 	@staticmethod
 	def __strToDate(str):
-		d = datetime.strptime(str,'%b%y')
-		m, y = d.month, d.year
-		a, m = divmod(m, 12)
-		return date(y+a, m+1, 1) - timedelta(days = 1)
+		d = date.strptime(str,'%b%y')
+		return workingday.last(d.year, d.month)
 
 	@staticmethod
 	def __intToStr(i):
@@ -366,10 +365,13 @@ class FinancialData:
 		fs.read()
 		return fs
 
-
-with open('sp500.txt','r') as f:
-	for line in f:
-		symbol = line[:-1]
-		print symbol
-		f = FinancialData(symbol)
-		f.update()
+	@staticmethod
+	def list(file, action = 'read'):
+		fs = dict()
+		with open(file, 'r') as f:
+			symbol = line[:-1].split()[0]
+			fs[symbol] = FinancialData(symbol)
+		if action in ['read']:
+			for symbol in sorted(fs.iterkeys()):
+				fs[symbol].read()
+		return fs

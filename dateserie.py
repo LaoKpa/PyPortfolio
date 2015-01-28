@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from datetime import *
-from timewindow import *
-from timeserie import *
+from workingday import workingday
+from timewindow import TimeWindow
+from timeserie import TimeSerie
 import numpy as np
 
 class DateSerie(dict):
@@ -26,7 +26,7 @@ class DateSerie(dict):
 				x_l = x
 				d = date[i]
 				x = self[d]
-				L = (d - d_l).days
+				L = d - d_l
 				for j in range(L):
 					ts.append(x_l + (x - x_l) * (j + 1) / float(L))
 
@@ -40,7 +40,7 @@ class DateSerie(dict):
 				x_l = x
 				d = date[i]
 				x = log(self[d])
-				L = (d - d_l).days
+				L = d - d_l
 				for j in range(L):
 					ts.append(exp(x_l + (x - x_l) * (j + 1) / float(L)))
 
@@ -49,7 +49,7 @@ class DateSerie(dict):
 			for i in xrange(1, len(date)):
 				d = d_next
 				d_next = date[i]
-				L = (d_next - d).days
+				L = d_next - d
 				for j in range(L):
 					ts.append(self[d])
 			ts.append(self[date[-1]])

@@ -23,17 +23,31 @@ class workingday(date):
 	def __sub__(self, other):
 		if isinstance(other, int):
 			return self.__shift(-other)
-		elif isinstance(other, workingday):
-			w1 = self.weekday()
-			d1 = super(workingday, self).__add__(timedelta(days = -w1))
-			d2 = super(workingday, other).__add__(timedelta(days = -w1))
-			a, b = divmod((d1 - d2).days, 7)
-			return 5*a + b
+		elif isinstance(other, workingday):   # not well writen
+			w_self = self.weekday()
+			w_other = other.weekday()
+			b = w_self - w_other
+			a = int(((super(workingday, self).__sub__(other)).days-b)/7)
+			return 5 * a + b
 
 	def __shift(self, n):
 		a = int((self.weekday() + n)/5)
 		b = n - 5*a
 		d = super(workingday, self).__add__(timedelta(days = 7*a + b))
+		return workingday(d.year, d.month, d.day)
+
+	def __str__(self):
+		return super(workingday, self).__str__()
+
+	def date(self):
+		return date(self.year, self.month, self.day)
+
+	@staticmethod
+	def today():
+		d = date.today()
+		w = d.weekday()
+		if w in [5,6]:
+			d -= timedelta(7-w)
 		return workingday(d.year, d.month, d.day)
 
 	@staticmethod
@@ -49,9 +63,14 @@ class workingday(date):
 			return True
 
 	@staticmethod
-	def firstworkingday(year, month):
-		pass
+	def first(year, month):
+		w = date(year, month, 1).weekday()
+		shift = 0
+		if w in [5, 6]:
+			shift = 7 - w
+		return workingday(year, month, 1 + shift)
 
 	@staticmethod
-	def lastworkingday(year, month):
-		pass
+	def last(year, month):
+		a, month = divmod(month, 12)
+		return workingday.first(year+a, month+1) - 1

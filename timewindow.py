@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from datetime import *
+from workingday import *
 
 class TimeWindow:
 
@@ -57,7 +57,7 @@ class TimeWindow:
 			elif other.begin >= self.begin and other.end <= self.end:
 				return True
 
-		elif isinstance(other, date):
+		elif isinstance(other, (workingday, date)):
 			if other >= self.begin and other <= self.end:
 				return True
 		
@@ -78,7 +78,7 @@ class TimeWindow:
 		if self.void:
 			return 0
 		else:
-			return (self.end - self.begin).days + 1
+			return (self.end - self.begin) + 1
 
 	def shift(self, N):
 		"""
@@ -88,9 +88,7 @@ class TimeWindow:
 		if self.void:
 			return self
 		else:
-			return TimeWindow(
-				self.begin + timedelta(days = N),
-				self.end   + timedelta(days = N))
+			return TimeWindow(self.begin + N, self.end + N)
 
 	def __add__(self, N):
 		return self.shift(N)
@@ -99,10 +97,10 @@ class TimeWindow:
 		return self.shift(-N)
 
 	def extend(self, N = 1):
-		return TimeWindow(self.begin, self.end + timedelta(days = N))
+		return TimeWindow(self.begin, self.end + N)
 
 	def extendleft(self, N = 1):
-		return TimeWindow(self.begin - timedelta(days = N), self.end)
+		return TimeWindow(self.begin - N, self.end)
 
 	def rolling(self, N):
 		""" This operatior is equivalent to W & (W+N-1) """
@@ -117,20 +115,19 @@ class TimeWindow:
 
 	@staticmethod
 	def year(year):
-		begin = date(year,1,1)
-		end = date(year,12,31)
+		begin = workingday.first(year,1)
+		end = workingday.last(year,12)
 		return TimeWindow(begin, end)
 
 	@staticmethod
 	def month(month, year):
-		begin = date(year, month, 1)
-		a, m = divmod(month, 12)
-		end = date(year+a, m+1, 1) - timedelta(days = 1)
+		begin = workingday.first(year, month, 1)
+		end = workingday.last(year, month, 1)
 		return TimeWindow(begin, end)
 
 	@staticmethod
 	def years(year1, year2):
 		assert not year1 > year2
-		begin = date(year1,1,1)
-		end = date(year2,12,31)
+		begin = workingday.first(year1,1)
+		end = workingday.last(year2,12)
 		return TimeWindow(begin, end)

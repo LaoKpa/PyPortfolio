@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from datetime import *
+from workingday import *
 from dateserie import *
 import timewindow
 import numpy as np
@@ -10,6 +10,7 @@ import numpy as np
 #	* Hurst(N)
 #   * Fourier(i, N)
 #	* ema(N)
+
 
 class TimeSerie(list):
 	""" Pairs (W, x), where x \in A^{len(W)} """
@@ -41,8 +42,15 @@ class TimeSerie(list):
 		h = dict()
 		begin = self.TimeWindow.begin
 		for i in xrange(len(self)):
-			h[begin + timedelta(days = i)] = self[i]
+			h[begin + i] = self[i]
 		return h
+
+	def keys(self):
+		keys = []
+		begin = self.TimeWindow.begin
+		for i in xrange(len(self)):
+			keys.append((begin + i).date())
+		return keys
 
 	def Integral(self):
 		"""
@@ -75,8 +83,8 @@ class TimeSerie(list):
 		"""
 		W = self.TimeWindow & TimeWindow
 		if not W.void:
-			shift = (W.begin - self.TimeWindow.begin).days
-			ts = self[shift : len(W) + (W.begin - self.TimeWindow.begin).days]
+			shift = W.begin - self.TimeWindow.begin
+			ts = self[shift : len(W) + (W.begin - self.TimeWindow.begin)] # verificar isto
 			return TimeSerie(ts, W)
 		else:
 			return TimeSerie.void()
@@ -152,8 +160,8 @@ class TimeSerie(list):
 				return TimeSerie.void()
 			else:
 				ts = []
-				d_s = (W.begin - self.TimeWindow.begin).days
-				d_o = (W.begin - other.TimeWindow.begin).days
+				d_s = W.begin - self.TimeWindow.begin
+				d_o = W.begin - other.TimeWindow.begin
 				for i in xrange(len(W)):
 					ts.append(self[d_s + i] + other[d_o + i])
 				return TimeSerie(ts, W)
@@ -169,8 +177,8 @@ class TimeSerie(list):
 				return TimeSerie.void()
 			else:
 				ts = []
-				d_s = (W.begin - self.TimeWindow.begin).days
-				d_o = (W.begin - other.TimeWindow.begin).days
+				d_s = W.begin - self.TimeWindow.begin
+				d_o = W.begin - other.TimeWindow.begin
 				for i in xrange(len(W)):
 					ts.append(self[d_s + i] - other[d_o + i])
 				return TimeSerie(ts, W)
@@ -186,8 +194,8 @@ class TimeSerie(list):
 				return TimeSerie.void()
 			else:
 				ts = []
-				d_s = (W.begin - self.TimeWindow.begin).days
-				d_o = (W.begin - other.TimeWindow.begin).days
+				d_s = W.begin - self.TimeWindow.begin
+				d_o = W.begin - other.TimeWindow.begin
 				for i in xrange(len(W)):
 					ts.append(self[d_s + i] * other[d_o + i])
 				return TimeSerie(ts, W)
@@ -203,8 +211,8 @@ class TimeSerie(list):
 				return TimeSerie.void()
 			else:
 				ts = []
-				d_s = (W.begin - self.TimeWindow.begin).days
-				d_o = (W.begin - other.TimeWindow.begin).days
+				d_s = W.begin - self.TimeWindow.begin
+				d_o = W.begin - other.TimeWindow.begin
 				for i in xrange(len(W)):
 					ts.append(self[d_s + i] / other[d_o + i])
 				return TimeSerie(ts, W)
@@ -391,7 +399,12 @@ class TimeSerie(list):
 			return TimeSerie.void()
 
 		Y = self & W
-		X = [args[k] & W for k in xrange(n)]
+		X = []
+		if 'constant' in kwargs.keys() and kwargs['constant'] is True:
+			n += 1
+			X.append(TimeSerie(1, W))
+
+		X.extend([args[k] & W for k in xrange(len(args))])
 
 		XTX = np.matrix(np.zeros((n,n)))
 		XTY = np.zeros(n)
@@ -428,7 +441,23 @@ class TimeSerie(list):
 			b_.append(np.linalg.solve(XTX, XTY))
 			y_.append(np.inner(b_[-1], x_[-1]))
 
-		if 'error' in kwargs.keys() and kwargs['error'] is True:
+		if 'coef' in kwargs.keys() and kwargs['coef'] is True:
 			return TimeSerie(y_, W.rolling(N)), TimeSerie(b_, W.rolling(N))
 		else:
 			return TimeSerie(y_, W.rolling(N))
+
+	def alpha_beta(self, N = 260, market_return = None, risk_free_return = None):
+		import historical
+		if market_return is None: market_return = historical.LogReturns('^GSPC')
+		if risk_free_return is None: risk_free_return = historical.risk_free_return()
+		self_excess = self - risk_free_return
+		market_excess = market_return - risk_free_return
+		b = self_excess.MultLinearRegr(N, market_excess, constant = True, coef = True)[1]
+		W = b.TimeWindow
+		alpha = []
+		beta = []
+		for i in xrange(len(b)):
+			alpha.append(b[i][0])
+			beta.append(b[i][1])
+		return TimeSerie(alpha, W), TimeSerie(beta, W)
+
